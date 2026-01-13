@@ -9,23 +9,37 @@ This system controls two drones via USB telemetry radios:
 - **Drone 1 (Scout)**: Surveys an area defined by a KML polygon, detects humans using YOLO+BoT-SORT, and logs GPS coordinates
 - **Drone 2 (Delivery)**: Reads detected targets and performs payload drops in batches
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         GCS LAPTOP                              │
-│  ┌─────────────────┐              ┌─────────────────┐          │
-│  │  Scout Mission  │              │ Delivery Mission│          │
-│  │  - Survey area  │              │  - Load targets │          │
-│  │  - Detect humans│              │  - Drop payloads│          │
-│  │  - Log targets  │──────────────│  - Batch refill │          │
-│  └────────┬────────┘              └────────┬────────┘          │
-│           │                                │                    │
-│   /dev/ttyUSB0                     /dev/ttyUSB1                │
-└───────────┼────────────────────────────────┼────────────────────┘
-            │                                │
-       ┌────▼────┐                      ┌────▼────┐
-       │ Drone 1 │                      │ Drone 2 │
-       │ (Scout) │                      │(Delivery│
-       └─────────┘                      └─────────┘
+```mermaid
+flowchart TB
+    subgraph GCS["🖥️ GCS LAPTOP"]
+        subgraph Scout["Scout Mission"]
+            S1["📍 Survey Area"]
+            S2["👁️ Detect Humans"]
+            S3["📝 Log GPS Targets"]
+        end
+        
+        subgraph Delivery["Delivery Mission"]
+            D1["📂 Load Targets"]
+            D2["📦 Drop Payloads"]
+            D3["🔄 Batch Refill"]
+        end
+        
+        Scout -->|targets.json| Delivery
+    end
+    
+    GCS -->|"/dev/ttyUSB0"| Radio1["📡 Telemetry Radio"]
+    GCS -->|"/dev/ttyUSB1"| Radio2["📡 Telemetry Radio"]
+    
+    Radio1 -.->|"MAVLink"| Drone1["🚁 Drone 1<br/>SCOUT"]
+    Radio2 -.->|"MAVLink"| Drone2["🚁 Drone 2<br/>DELIVERY"]
+    
+    Drone1 -->|"GPS coordinates"| Scout
+    Drone2 -->|"Status"| Delivery
+
+    style Scout fill:#f97316,stroke:#ea580c,color:#fff
+    style Delivery fill:#10b981,stroke:#059669,color:#fff
+    style Drone1 fill:#f97316,stroke:#ea580c,color:#fff
+    style Drone2 fill:#10b981,stroke:#059669,color:#fff
 ```
 
 ## Features
