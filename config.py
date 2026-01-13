@@ -41,13 +41,16 @@ class MissionConfig:
     # =========================================================================
     
     # Survey altitude for Scout drone (meters)
-    SCOUT_ALTITUDE: float = 25.0
+    SCOUT_ALTITUDE: float = 10.0
     
-    # Delivery altitude for payload drops (meters)
-    DELIVERY_ALTITUDE: float = 15.0
+    # Delivery cruise altitude (meters)
+    DELIVERY_ALTITUDE: float = 10.0
+    
+    # Altitude to descend to for payload drop (meters)
+    DROP_ALTITUDE: float = 5.0
     
     # RTL altitude (meters)
-    RTL_ALTITUDE: float = 30.0
+    RTL_ALTITUDE: float = 15.0
     
     # =========================================================================
     # SURVEY SETTINGS (Scout Drone)
@@ -107,7 +110,7 @@ class MissionConfig:
     # VIDEO / RTSP SETTINGS
     # =========================================================================
     
-    # RTSP stream URL for live feed
+    # RTSP stream URL for live feed (SIYI camera)
     RTSP_URL: str = "rtsp://192.168.144.25:8554/main.264"
     
     # Video resolution

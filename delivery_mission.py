@@ -363,7 +363,7 @@ class DeliveryMission:
                 logger.warning(f"Navigation to target {target.id} failed")
                 continue
             
-            # Wait for arrival
+            # Wait for arrival at cruise altitude
             if not self.drone.wait_for_arrival(
                 target.lat, 
                 target.lon, 
@@ -373,8 +373,27 @@ class DeliveryMission:
                 logger.warning(f"Timeout reaching target {target.id}")
                 continue
             
+            # Descend to drop altitude
+            logger.info(f"Descending to drop altitude ({self.config.DROP_ALTITUDE}m)...")
+            if not self.drone.goto(target.lat, target.lon, self.config.DROP_ALTITUDE):
+                logger.warning("Failed to descend for drop")
+                continue
+            
+            # Wait for descent
+            if not self.drone.wait_for_altitude(
+                self.config.DROP_ALTITUDE, 
+                tolerance=1.0, 
+                timeout=30.0
+            ):
+                logger.warning("Descent timeout, attempting drop anyway")
+            
             # Drop payload
             self.drop_payload()
+            
+            # Ascend back to cruise altitude
+            logger.info(f"Ascending to cruise altitude ({self.config.DELIVERY_ALTITUDE}m)...")
+            self.drone.goto(target.lat, target.lon, self.config.DELIVERY_ALTITUDE)
+            self.drone.wait_for_altitude(self.config.DELIVERY_ALTITUDE, tolerance=1.0, timeout=20.0)
             
             # Mark as delivered
             target.delivered = True
