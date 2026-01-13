@@ -216,9 +216,57 @@ class DroneController:
         logger.error(f"[{self.name}] GPS timeout")
         return False
     
+    def wait_for_ekf_ready(self, timeout: float = 30.0) -> bool:
+        """
+        Wait for EKF to have valid position estimation.
+        
+        Critical for GUIDED mode operation. EKF must have good
+        position estimate before arming.
+        
+        Args:
+            timeout: Maximum wait time in seconds
+            
+        Returns:
+            True if EKF is ready
+        """
+        logger.info(f"[{self.name}] Waiting for EKF position estimation...")
+        start_time = time.time()
+        
+        while time.time() - start_time < timeout:
+            # Check EKF status
+            msg = self.mav.recv_match(type='EKF_STATUS_REPORT', blocking=True, timeout=1.0)
+            if msg:
+                # Check position flags
+                pos_horiz = msg.flags & 1   # EKF_POS_HORIZ_ABS
+                pos_vert = msg.flags & 2    # EKF_POS_VERT_ABS
+                pred_horiz = msg.flags & 4  # EKF_PRED_POS_HORIZ_ABS
+                
+                if pos_horiz and pos_vert:
+                    logger.info(f"[{self.name}] EKF position estimation ready")
+                    return True
+            
+            # Also verify GPS position is valid
+            gps_msg = self.mav.recv_match(type='GLOBAL_POSITION_INT', blocking=True, timeout=0.5)
+            if gps_msg and gps_msg.lat != 0 and gps_msg.lon != 0:
+                # If we have GPS but no EKF message, check GPS fix quality
+                gps_raw = self.mav.recv_match(type='GPS_RAW_INT', blocking=True, timeout=0.5)
+                if gps_raw and gps_raw.fix_type >= 3:  # 3D fix or better
+                    logger.info(f"[{self.name}] GPS 3D fix acquired (fix_type={gps_raw.fix_type})")
+                    return True
+            
+            time.sleep(0.5)
+        
+        logger.error(f"[{self.name}] EKF position estimation timeout")
+        return False
+    
     def arm(self) -> bool:
         """
-        Arm the drone with safety checks.
+        Arm the drone with comprehensive safety checks.
+        
+        Performs pre-flight checks:
+        - Battery voltage and percentage
+        - GPS fix availability
+        - EKF position estimation status
         
         Returns:
             True if armed successfully
@@ -227,19 +275,32 @@ class DroneController:
             logger.error(f"[{self.name}] Not connected")
             return False
         
-        # Pre-arm checks
+        logger.info(f"[{self.name}] Running pre-arm checks...")
+        
+        # Check 1: Battery
         battery_ok, voltage, percent = self.check_battery()
         if not battery_ok:
-            logger.error(f"[{self.name}] Cannot arm: Battery too low ({voltage}V, {percent}%)")
+            logger.error(f"[{self.name}] PRE-ARM FAIL: Battery too low ({voltage:.1f}V, {percent}%)")
+            return False
+        logger.info(f"[{self.name}] Battery OK: {voltage:.1f}V, {percent}%")
+        
+        # Check 2: GPS fix
+        if not self.wait_for_gps():
+            logger.error(f"[{self.name}] PRE-ARM FAIL: No GPS fix")
             return False
         
-        # Wait for GPS
-        if not self.wait_for_gps():
-            logger.error(f"[{self.name}] Cannot arm: No GPS fix")
+        # Check 3: EKF position estimation (critical for GUIDED mode)
+        if not self.wait_for_ekf_ready():
+            logger.error(f"[{self.name}] PRE-ARM FAIL: EKF not ready")
             return False
         
         # Store home position
         self.home_position = self.get_location()
+        if self.home_position:
+            logger.info(f"[{self.name}] Home position: ({self.home_position[0]:.6f}, "
+                       f"{self.home_position[1]:.6f}, {self.home_position[2]:.1f}m)")
+        
+        logger.info(f"[{self.name}] Pre-arm checks passed. Sending arm command...")
         
         # Send arm command
         self.mav.mav.command_long_send(
@@ -252,14 +313,16 @@ class DroneController:
         )
         
         # Wait for acknowledgment
-        msg = self.mav.recv_match(type='COMMAND_ACK', blocking=True, timeout=3.0)
+        msg = self.mav.recv_match(type='COMMAND_ACK', blocking=True, timeout=5.0)
         if msg and msg.result == mavutil.mavlink.MAV_RESULT_ACCEPTED:
             self._is_armed = True
-            logger.info(f"[{self.name}] Armed successfully")
+            logger.info(f"[{self.name}] ARMED SUCCESSFULLY")
             return True
         else:
-            logger.error(f"[{self.name}] Arm command failed")
+            result_str = "timeout" if not msg else f"result={msg.result}"
+            logger.error(f"[{self.name}] ARM FAILED: {result_str}")
             return False
+
     
     def disarm(self) -> bool:
         """
