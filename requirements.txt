@@ -1,0 +1,17 @@
+# Multi-Drone Mission - Requirements
+# ELKa 2026 Final Mission
+
+# MAVLink Communication
+pymavlink>=2.4.0
+
+# Geodetic Calculations
+shapely>=2.0.0
+pyproj>=3.6.0
+
+# Computer Vision
+ultralytics>=8.0.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+
+# Utilities
+pyyaml>=6.0
