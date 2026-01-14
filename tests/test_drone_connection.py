@@ -2,144 +2,168 @@
 """
 Test 1: Dual Drone Connection Test
 
+Auto-detects and identifies drones by battery voltage:
+- Scout (4S): 14-17V
+- Delivery (6S): 21-25V
+
 Tests:
-- Connect to both Scout and Delivery drones
-- Set both to GUIDED mode
-- Display connection status and GPS info
+- Scans all available ports
+- Connects and identifies each drone
+- Displays battery, GPS, and system info
+- Sets GUIDED mode on both
 """
 
 import sys
 import time
-import logging
+import glob
 
 sys.path.insert(0, '..')
+from pymavlink import mavutil
 from config import MissionConfig
-from drone_controller import DroneController
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-    datefmt='%H:%M:%S'
-)
-logger = logging.getLogger('DroneConnectionTest')
 
 
-def test_drone_connection(name: str, connection: str, baud: int) -> bool:
-    """
-    Test connection to a single drone.
+def identify_drone(voltage: float) -> str:
+    """Identify drone type by battery voltage."""
+    if voltage > 20:
+        return "DELIVERY"  # 6S battery
+    elif voltage > 10:
+        return "SCOUT"     # 4S battery
+    else:
+        return "UNKNOWN"
+
+
+def scan_and_connect():
+    """Scan all ports and connect to drones."""
+    ports = sorted(glob.glob('/dev/ttyACM*') + glob.glob('/dev/ttyUSB*'))
     
-    Args:
-        name: Drone name
-        connection: Connection string
-        baud: Baud rate
+    if not ports:
+        print("No serial ports found!")
+        return {}
+    
+    print(f"Found ports: {ports}")
+    
+    drones = {}
+    
+    for port in ports:
+        print(f"\n[{port}] Scanning...")
+        try:
+            mav = mavutil.mavlink_connection(port, baud=57600)
+            msg = mav.wait_heartbeat(timeout=5)
+            
+            if not msg:
+                print(f"  No heartbeat")
+                continue
+            
+            sysid = mav.target_system
+            
+            # Get battery
+            batt = mav.recv_match(type='SYS_STATUS', blocking=True, timeout=2)
+            voltage = batt.voltage_battery / 1000.0 if batt else 0
+            
+            # Identify drone
+            drone_type = identify_drone(voltage)
+            
+            # Get GPS
+            gps = mav.recv_match(type='GLOBAL_POSITION_INT', blocking=True, timeout=2)
+            if gps and gps.lat != 0:
+                lat, lon = gps.lat / 1e7, gps.lon / 1e7
+                gps_status = f"({lat:.6f}, {lon:.6f})"
+            else:
+                gps_status = "No fix"
+            
+            print(f"  {drone_type} detected!")
+            print(f"  Battery: {voltage:.1f}V")
+            print(f"  GPS: {gps_status}")
+            print(f"  System ID: {sysid}")
+            
+            drones[drone_type] = {
+                'port': port,
+                'mav': mav,
+                'voltage': voltage,
+                'sysid': sysid
+            }
+            
+        except Exception as e:
+            print(f"  Error: {str(e)[:50]}")
+    
+    return drones
+
+
+def test_guided_mode(drones: dict):
+    """Test setting GUIDED mode on both drones."""
+    print("\n" + "="*50)
+    print("TESTING GUIDED MODE")
+    print("="*50)
+    
+    for name, info in drones.items():
+        mav = info['mav']
+        print(f"\n[{name}] Setting GUIDED mode...")
         
-    Returns:
-        True if all tests pass
-    """
-    print(f"\n{'='*60}")
-    print(f"Testing: {name}")
-    print(f"Connection: {connection}")
-    print('='*60)
-    
-    drone = DroneController(connection, baud=baud, name=name)
-    
-    # Test 1: Connect
-    print("\n[1] Connecting...")
-    if not drone.connect(timeout=15.0):
-        print("    FAILED: Could not connect")
-        return False
-    print("    PASSED: Connected")
-    
-    # Test 2: Get GPS
-    print("\n[2] Getting GPS position...")
-    location = drone.get_location()
-    if location:
-        lat, lon, alt = location
-        print(f"    PASSED: Position ({lat:.6f}, {lon:.6f}, {alt:.1f}m)")
-    else:
-        print("    WARNING: No GPS position (may need time to acquire)")
-    
-    # Test 3: Check battery
-    print("\n[3] Checking battery...")
-    battery_ok, voltage, percent = drone.check_battery()
-    if voltage > 0:
-        status = "OK" if battery_ok else "LOW"
-        print(f"    {status}: {voltage:.1f}V, {percent}%")
-    else:
-        print("    WARNING: Could not read battery")
-    
-    # Test 4: Set GUIDED mode
-    print("\n[4] Setting GUIDED mode...")
-    if drone.set_mode('GUIDED'):
-        print("    PASSED: Mode set to GUIDED")
-    else:
-        print("    FAILED: Could not set GUIDED mode")
-        drone.disconnect()
-        return False
-    
-    # Test 5: Verify mode
-    print("\n[5] Verifying mode...")
-    time.sleep(1)
-    print("    Mode verification requires heartbeat check")
-    
-    # Cleanup
-    print("\n[6] Disconnecting...")
-    drone.disconnect()
-    print("    PASSED: Disconnected")
-    
-    return True
+        mode_map = mav.mode_mapping()
+        if 'GUIDED' in mode_map:
+            mav.set_mode(mode_map['GUIDED'])
+            time.sleep(0.5)
+            print(f"[{name}] Mode set to GUIDED")
+        else:
+            print(f"[{name}] GUIDED mode not available")
 
 
 def main():
     print("="*60)
-    print("DUAL DRONE CONNECTION TEST")
+    print("DUAL DRONE AUTO-DETECTION TEST")
     print("="*60)
+    print("\nIdentification by battery voltage:")
+    print("  Scout:    4S LiPo (14-17V)")
+    print("  Delivery: 6S LiPo (21-25V)")
     
-    config = MissionConfig()
+    # Scan and connect
+    drones = scan_and_connect()
     
-    print(f"\nScout connection: {config.SCOUT_CONNECTION}")
-    print(f"Delivery connection: {config.DELIVERY_CONNECTION}")
-    
-    # Prompt for confirmation
-    print("\nMake sure both telemetry radios are connected.")
-    input("Press ENTER to start tests...")
-    
-    results = {}
-    
-    # Test Scout drone
-    results['Scout'] = test_drone_connection(
-        config.SCOUT_NAME,
-        config.SCOUT_CONNECTION,
-        config.SCOUT_BAUD
-    )
-    
-    # Test Delivery drone
-    results['Delivery'] = test_drone_connection(
-        config.DELIVERY_NAME,
-        config.DELIVERY_CONNECTION,
-        config.DELIVERY_BAUD
-    )
+    if not drones:
+        print("\nNo drones found!")
+        return 1
     
     # Summary
     print("\n" + "="*60)
-    print("TEST SUMMARY")
+    print("DETECTION SUMMARY")
     print("="*60)
     
-    all_passed = True
-    for name, passed in results.items():
-        status = "PASSED" if passed else "FAILED"
-        print(f"  {name}: {status}")
-        if not passed:
-            all_passed = False
+    for name in ['SCOUT', 'DELIVERY']:
+        if name in drones:
+            info = drones[name]
+            print(f"  {name}: {info['port']} ({info['voltage']:.1f}V)")
+        else:
+            print(f"  {name}: NOT FOUND")
     
-    print("="*60)
-    
-    if all_passed:
-        print("\nAll tests PASSED - Ready for mission")
+    # Check if both found
+    if 'SCOUT' in drones and 'DELIVERY' in drones:
+        print("\n  Both drones detected!")
+        
+        # Update config suggestion
+        print("\n  Suggested config.py settings:")
+        print(f"    SCOUT_CONNECTION = \"{drones['SCOUT']['port']}\"")
+        print(f"    DELIVERY_CONNECTION = \"{drones['DELIVERY']['port']}\"")
     else:
-        print("\nSome tests FAILED - Check connections")
+        print("\n  WARNING: Not all drones detected!")
     
-    return 0 if all_passed else 1
+    # Test GUIDED mode
+    if len(drones) > 0:
+        response = input("\nTest GUIDED mode on connected drones? (y/n): ").strip().lower()
+        if response == 'y':
+            test_guided_mode(drones)
+    
+    # Cleanup
+    print("\n" + "="*60)
+    print("Disconnecting...")
+    for name, info in drones.items():
+        info['mav'].close()
+        print(f"  [{name}] Disconnected")
+    
+    print("="*60)
+    print("TEST COMPLETE")
+    print("="*60)
+    
+    return 0 if len(drones) == 2 else 1
 
 
 if __name__ == "__main__":

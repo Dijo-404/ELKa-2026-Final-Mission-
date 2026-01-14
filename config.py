@@ -23,13 +23,13 @@ class MissionConfig:
     # CONNECTION SETTINGS
     # =========================================================================
     
-    # Scout Drone (Survey & Detection)
-    SCOUT_CONNECTION: str = "/dev/ttyUSB0"
+    # Scout Drone (Survey & Detection) - 4S battery
+    SCOUT_CONNECTION: str = "/dev/ttyACM1"
     SCOUT_BAUD: int = 57600
     SCOUT_NAME: str = "Scout"
     
-    # Delivery Drone (Payload Drop)
-    DELIVERY_CONNECTION: str = "/dev/ttyUSB1"
+    # Delivery Drone (Payload Drop) - 6S battery
+    DELIVERY_CONNECTION: str = "/dev/ttyACM0"
     DELIVERY_BAUD: int = 57600
     DELIVERY_NAME: str = "Delivery"
     
@@ -147,11 +147,13 @@ class MissionConfig:
     # SAFETY SETTINGS
     # =========================================================================
     
-    # Minimum battery voltage to continue mission
-    MIN_BATTERY_VOLTAGE: float = 14.0
+    # Scout drone: 4S LiPo (14.8V nominal, 3.5V/cell min = 14.0V)
+    SCOUT_MIN_BATTERY_VOLTAGE: float = 14.0
+    SCOUT_MIN_BATTERY_PERCENT: int = 20
     
-    # Minimum battery percentage to continue mission
-    MIN_BATTERY_PERCENT: int = 20
+    # Delivery drone: 6S LiPo (22.2V nominal, 3.5V/cell min = 21.0V)
+    DELIVERY_MIN_BATTERY_VOLTAGE: float = 21.0
+    DELIVERY_MIN_BATTERY_PERCENT: int = 20
     
     # Maximum distance from home (meters) - triggers RTL if exceeded
     MAX_DISTANCE_FROM_HOME: float = 500.0
