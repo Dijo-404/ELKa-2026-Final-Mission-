@@ -78,20 +78,32 @@ ELKa-2026-Final-Mission-/
 
 ## Installation
 
+### Linux/macOS
+
 ```bash
 cd /home/dj/Projects/ELKa-2026-Final-Mission-
 pip install -r requirements.txt
 ```
 
+### Windows
+
+```powershell
+cd C:\path\to\ELKa-2026-Final-Mission-
+pip install -r requirements.txt
+```
+
 ## Configuration
 
-Edit `config.py` to customize mission parameters:
+Edit `config.py` to set your connection ports:
 
 ```python
 class MissionConfig:
-    # Connections
-    SCOUT_CONNECTION = "/dev/ttyUSB0"
-    DELIVERY_CONNECTION = "/dev/ttyUSB1"
+    # Windows: "COM3", "COM4", etc.
+    # Linux: "/dev/ttyACM0", "/dev/ttyUSB0", etc.
+    # macOS: "/dev/tty.usbmodem*", "/dev/tty.usbserial*"
+    
+    SCOUT_CONNECTION = "/dev/ttyACM1"      # 4S battery drone
+    DELIVERY_CONNECTION = "/dev/ttyACM0"   # 6S battery drone
     
     # Altitudes
     SCOUT_ALTITUDE = 10.0       # Survey altitude (m)

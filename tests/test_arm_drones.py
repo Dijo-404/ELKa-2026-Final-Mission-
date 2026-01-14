@@ -2,6 +2,7 @@
 """
 Test: Arm Both Drones in Stabilize Mode
 
+Cross-platform compatible (Windows/Linux/macOS)
 Auto-detects drones by battery voltage:
 - Scout (4S): 14-17V  
 - Delivery (6S): 21-25V
@@ -9,19 +10,45 @@ Auto-detects drones by battery voltage:
 This script:
 1. Auto-detects and connects to both drones
 2. Sets STABILIZE mode
-3. Arms both drones
+3. Force arms both drones (bypasses pre-arm checks)
 4. Applies 10% throttle for 3 seconds
-5. Disarms and exits
+5. Force disarms and exits
 
 WARNING: Props will spin! Ensure drones are secured or props removed.
 """
 
 import sys
 import time
-import glob
+import platform
 
 sys.path.insert(0, '..')
 from pymavlink import mavutil
+
+
+def get_serial_ports():
+    """
+    Get list of available serial ports (cross-platform).
+    Works on Windows, Linux, and macOS.
+    """
+    ports = []
+    system = platform.system()
+    
+    if system == 'Windows':
+        # Windows: COM1, COM2, etc.
+        import serial.tools.list_ports
+        for port in serial.tools.list_ports.comports():
+            ports.append(port.device)
+    else:
+        # Linux/macOS: /dev/tty*
+        import glob
+        # Linux
+        ports.extend(glob.glob('/dev/ttyACM*'))
+        ports.extend(glob.glob('/dev/ttyUSB*'))
+        # macOS
+        ports.extend(glob.glob('/dev/tty.usbserial*'))
+        ports.extend(glob.glob('/dev/tty.usbmodem*'))
+    
+    return sorted(ports)
 
 
 def identify_drone(voltage: float) -> str:
@@ -36,7 +63,7 @@ def identify_drone(voltage: float) -> str:
 
 def scan_drones():
     """Scan all ports and identify drones by voltage."""
-    ports = sorted(glob.glob('/dev/ttyACM*') + glob.glob('/dev/ttyUSB*'))
+    ports = get_serial_ports()
     
     if not ports:
         print("No serial ports found!")
@@ -157,10 +184,10 @@ def release_throttle(mav):
     )
 
 
-
 def main():
     print("="*60)
     print("DUAL DRONE ARM TEST - STABILIZE + 10% THROTTLE")
+    print(f"Platform: {platform.system()}")
     print("="*60)
     print("\nWARNING: This will spin props!")
     print("Ensure drones are secured or props removed.\n")
@@ -201,7 +228,7 @@ def main():
         time.sleep(1)
         
         # Arm
-        print("\n--- Arming ---")
+        print("\n--- Force Arming ---")
         armed = []
         for name, info in drones.items():
             if arm_drone(info['mav'], name):
@@ -228,7 +255,7 @@ def main():
         time.sleep(0.5)
         
         # Disarm
-        print("\n--- Disarming ---")
+        print("\n--- Force Disarming ---")
         for name in armed:
             disarm_drone(drones[name]['mav'], name)
     

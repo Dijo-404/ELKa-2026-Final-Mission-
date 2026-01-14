@@ -2,12 +2,13 @@
 """
 Test 1: Dual Drone Connection Test
 
+Cross-platform compatible (Windows/Linux/macOS)
 Auto-detects and identifies drones by battery voltage:
 - Scout (4S): 14-17V
 - Delivery (6S): 21-25V
 
 Tests:
-- Scans all available ports
+- Scans all available serial ports
 - Connects and identifies each drone
 - Displays battery, GPS, and system info
 - Sets GUIDED mode on both
@@ -15,11 +16,36 @@ Tests:
 
 import sys
 import time
-import glob
+import platform
 
 sys.path.insert(0, '..')
 from pymavlink import mavutil
-from config import MissionConfig
+
+
+def get_serial_ports():
+    """
+    Get list of available serial ports (cross-platform).
+    Works on Windows, Linux, and macOS.
+    """
+    ports = []
+    system = platform.system()
+    
+    if system == 'Windows':
+        # Windows: COM1, COM2, etc.
+        import serial.tools.list_ports
+        for port in serial.tools.list_ports.comports():
+            ports.append(port.device)
+    else:
+        # Linux/macOS: /dev/tty*
+        import glob
+        # Linux
+        ports.extend(glob.glob('/dev/ttyACM*'))
+        ports.extend(glob.glob('/dev/ttyUSB*'))
+        # macOS
+        ports.extend(glob.glob('/dev/tty.usbserial*'))
+        ports.extend(glob.glob('/dev/tty.usbmodem*'))
+    
+    return sorted(ports)
 
 
 def identify_drone(voltage: float) -> str:
@@ -34,10 +60,17 @@ def identify_drone(voltage: float) -> str:
 
 def scan_and_connect():
     """Scan all ports and connect to drones."""
-    ports = sorted(glob.glob('/dev/ttyACM*') + glob.glob('/dev/ttyUSB*'))
+    ports = get_serial_ports()
     
     if not ports:
         print("No serial ports found!")
+        print("\nTroubleshooting:")
+        if platform.system() == 'Windows':
+            print("  - Check Device Manager for COM ports")
+            print("  - Install drivers for your telemetry radio")
+        else:
+            print("  - Check if transmitters are plugged in: ls /dev/tty*")
+            print("  - You may need permission: sudo usermod -a -G dialout $USER")
         return {}
     
     print(f"Found ports: {ports}")
@@ -111,6 +144,7 @@ def test_guided_mode(drones: dict):
 def main():
     print("="*60)
     print("DUAL DRONE AUTO-DETECTION TEST")
+    print(f"Platform: {platform.system()}")
     print("="*60)
     print("\nIdentification by battery voltage:")
     print("  Scout:    4S LiPo (14-17V)")

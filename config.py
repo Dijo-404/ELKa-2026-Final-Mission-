@@ -22,14 +22,17 @@ class MissionConfig:
     # =========================================================================
     # CONNECTION SETTINGS
     # =========================================================================
+    # Windows: Use COM ports (e.g., "COM3", "COM4")
+    # Linux: Use /dev/ttyACM* or /dev/ttyUSB* (e.g., "/dev/ttyACM0")
+    # macOS: Use /dev/tty.usbserial* or /dev/tty.usbmodem*
     
-    # Scout Drone (Survey & Detection) - 4S battery
-    SCOUT_CONNECTION: str = "/dev/ttyACM1"
+    # Scout Drone (Survey & Detection) - 4S battery (~14-17V)
+    SCOUT_CONNECTION: str = "/dev/ttyACM1"  # Linux default
     SCOUT_BAUD: int = 57600
     SCOUT_NAME: str = "Scout"
     
-    # Delivery Drone (Payload Drop) - 6S battery
-    DELIVERY_CONNECTION: str = "/dev/ttyACM0"
+    # Delivery Drone (Payload Drop) - 6S battery (~21-25V)
+    DELIVERY_CONNECTION: str = "/dev/ttyACM0"  # Linux default
     DELIVERY_BAUD: int = 57600
     DELIVERY_NAME: str = "Delivery"
     
