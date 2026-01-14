@@ -4,11 +4,15 @@ Mission Configuration - Central configuration for multi-drone mission
 
 All tunable parameters for Scout and Delivery drone missions.
 Modify these values to adjust mission behavior.
+
+Cross-platform compatible: Works on Linux (Arch) and Windows 10/11
 """
 
 from dataclasses import dataclass, field
 from typing import List
+from pathlib import Path
 import os
+import platform
 
 
 @dataclass
@@ -166,40 +170,41 @@ class MissionConfig:
     MAX_DISTANCE_FROM_HOME: float = 500.0
     
     # =========================================================================
-    # HELPER METHODS
+    # HELPER METHODS (pathlib for cross-platform compatibility)
     # =========================================================================
     
-    def get_absolute_path(self, relative_path: str) -> str:
-        """Get absolute path for a relative path."""
-        if os.path.isabs(relative_path):
-            return relative_path
-        return os.path.join(self.BASE_DIR, relative_path)
+    def get_absolute_path(self, relative_path: str) -> Path:
+        """Get absolute path for a relative path (cross-platform)."""
+        path = Path(relative_path)
+        if path.is_absolute():
+            return path
+        return Path(self.BASE_DIR) / path
     
-    def get_kml_path(self) -> str:
+    def get_kml_path(self) -> Path:
         """Get absolute path to KML file."""
         return self.get_absolute_path(self.KML_FILE)
     
-    def get_model_path(self) -> str:
+    def get_model_path(self) -> Path:
         """Get absolute path to YOLO model."""
         return self.get_absolute_path(self.YOLO_MODEL)
     
-    def get_targets_path(self) -> str:
+    def get_targets_path(self) -> Path:
         """Get absolute path to targets JSON file."""
         return self.get_absolute_path(self.TARGETS_FILE)
     
-    def get_log_path(self) -> str:
+    def get_log_path(self) -> Path:
         """Get absolute path to log file."""
         return self.get_absolute_path(self.LOG_FILE)
     
-    def get_output_dir(self) -> str:
+    def get_output_dir(self) -> Path:
         """Get absolute path to output directory."""
         return self.get_absolute_path(self.OUTPUT_DIR)
     
     def ensure_directories(self):
         """Create required directories if they don't exist."""
-        os.makedirs(self.get_output_dir(), exist_ok=True)
-        os.makedirs(os.path.dirname(self.get_kml_path()), exist_ok=True)
-        os.makedirs(os.path.dirname(self.get_model_path()), exist_ok=True)
+        self.get_output_dir().mkdir(parents=True, exist_ok=True)
+        self.get_kml_path().parent.mkdir(parents=True, exist_ok=True)
+        self.get_model_path().parent.mkdir(parents=True, exist_ok=True)
 
 
 # Default configuration instance
@@ -225,6 +230,38 @@ def get_config(**overrides) -> MissionConfig:
         else:
             raise ValueError(f"Unknown config key: {key}")
     return config
+
+
+def get_available_ports() -> list:
+    """
+    Get list of available serial ports (cross-platform).
+    
+    Returns:
+        List of available port names (e.g., ['/dev/ttyACM0', 'COM3'])
+    """
+    import platform
+    ports = []
+    
+    system = platform.system()
+    
+    if system == 'Windows':
+        try:
+            import serial.tools.list_ports
+            for port in serial.tools.list_ports.comports():
+                ports.append(port.device)
+        except ImportError:
+            # Fallback: check common COM ports
+            for i in range(1, 20):
+                ports.append(f"COM{i}")
+    else:
+        # Linux/macOS
+        import glob
+        ports.extend(glob.glob('/dev/ttyACM*'))
+        ports.extend(glob.glob('/dev/ttyUSB*'))
+        ports.extend(glob.glob('/dev/tty.usbserial*'))
+        ports.extend(glob.glob('/dev/tty.usbmodem*'))
+    
+    return sorted(ports)
 
 
 if __name__ == "__main__":

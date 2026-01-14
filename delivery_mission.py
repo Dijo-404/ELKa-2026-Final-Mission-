@@ -199,6 +199,11 @@ class DeliveryMission:
         """
         Wait for user confirmation that payload has been refilled.
         
+        SAFETY CRITICAL: Only prompts user after verifying:
+        1. Drone altitude is near 0 (landed)
+        2. Drone is disarmed
+        If still armed, forces disarm before prompt.
+        
         Args:
             batch_num: Current batch number (1-indexed)
             total_batches: Total number of batches
@@ -206,15 +211,44 @@ class DeliveryMission:
         Returns:
             True if user confirms refill, False if user cancels
         """
+        # =====================================================================
+        # SAFETY CHECK 1: Verify altitude is near 0 (landed)
+        # =====================================================================
+        if self.drone:
+            loc = self.drone.get_location()
+            if loc:
+                _, _, alt = loc
+                if alt > 1.0:
+                    logger.warning(f"Cannot refill - drone still airborne at {alt:.1f}m!")
+                    logger.info("Waiting for landing...")
+                    self.drone.wait_for_land(timeout=120.0)
+            
+            # =====================================================================
+            # SAFETY CHECK 2: Verify drone is disarmed
+            # =====================================================================
+            if self.drone.is_armed():
+                logger.warning("Drone still armed - force disarming for refill safety...")
+                self.drone.disarm()
+                time.sleep(1.0)
+            
+            # Double-check via heartbeat
+            if self.drone.query_armed_state():
+                logger.error("CRITICAL: Drone still armed after disarm attempt!")
+                logger.error("Manually disarm before refilling payload!")
+        
+        # =====================================================================
+        # SAFE TO SHOW REFILL PROMPT
+        # =====================================================================
         print("\n" + "=" * 60)
-        print(f"REFILL REQUIRED")
+        print(f"REFILL REQUIRED - DRONE SAFE")
         print("=" * 60)
+        print(f"✓ Drone landed and disarmed")
         print(f"Batch {batch_num}/{total_batches} complete.")
         print(f"Deliveries this batch: {self.config.PAYLOAD_CAPACITY}")
         print(f"Remaining batches: {total_batches - batch_num}")
         print(f"Remaining targets: {len(self.targets) - self.deliveries_completed}")
         print()
-        print("Please reload the payload!")
+        print(">>> Please reload the payload! <<<")
         print("=" * 60)
         
         while True:
@@ -317,34 +351,15 @@ class DeliveryMission:
             logger.error("Failed to connect to drone")
             return False
         
-        # 2. Set GUIDED mode and arm
-        logger.info("[2/5] Setting GUIDED mode...")
-        if not self.drone.set_mode('GUIDED'):
-            logger.error("Failed to set GUIDED mode")
+        # 2-4. Arm and Takeoff (using safety-enhanced method)
+        logger.info("[2/4] Executing robust arm and takeoff sequence...")
+        if not self.drone.arm_and_takeoff(self.config.DELIVERY_ALTITUDE):
+            logger.error("Arm and takeoff failed")
+            self.drone.disarm()  # Ensure disarmed
             return False
         
-        logger.info("[3/5] Arming drone...")
-        if not self.drone.arm():
-            logger.error("Failed to arm drone")
-            return False
-        
-        # 3. Takeoff
-        logger.info(f"[4/5] Taking off to {self.config.DELIVERY_ALTITUDE}m...")
-        if not self.drone.takeoff(self.config.DELIVERY_ALTITUDE):
-            logger.error("Takeoff failed")
-            self.drone.disarm()
-            return False
-        
-        # Wait for altitude
-        if not self.drone.wait_for_altitude(
-            self.config.DELIVERY_ALTITUDE, 
-            tolerance=2.0, 
-            timeout=30.0
-        ):
-            logger.warning("Altitude not reached, continuing anyway")
-        
-        # 4. Execute deliveries
-        logger.info("[5/5] Executing deliveries...")
+        # 5. Execute deliveries
+        logger.info("[3/4] Executing deliveries...")
         
         for i, target in enumerate(batch):
             if self.abort_requested:

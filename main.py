@@ -211,21 +211,21 @@ Examples:
     mode_group.add_argument('--delivery-only', action='store_true',
                            help='Run only the Delivery (payload) mission')
     
-    # Connections
-    parser.add_argument('--scout-port', default='/dev/ttyUSB0',
-                       help='Scout drone connection (default: /dev/ttyUSB0)')
-    parser.add_argument('--delivery-port', default='/dev/ttyUSB1',
-                       help='Delivery drone connection (default: /dev/ttyUSB1)')
-    parser.add_argument('--baud', type=int, default=57600,
+    # Connections (default=None means use config.py values)
+    parser.add_argument('--scout-port',
+                       help='Scout drone connection (uses config.py if not specified)')
+    parser.add_argument('--delivery-port',
+                       help='Delivery drone connection (uses config.py if not specified)')
+    parser.add_argument('--baud', type=int,
                        help='Baud rate for serial connections (default: 57600)')
     
     # Mission parameters
     parser.add_argument('--kml', help='Path to KML survey area file')
     parser.add_argument('--targets', help='Path to targets.json (for --delivery-only)')
     parser.add_argument('--rtsp', help='RTSP stream URL for video')
-    parser.add_argument('--altitude', type=float, default=25.0,
-                       help='Survey altitude in meters (default: 25)')
-    parser.add_argument('--capacity', type=int, default=5,
+    parser.add_argument('--altitude', type=float,
+                       help='Survey altitude in meters (default: 10)')
+    parser.add_argument('--capacity', type=int,
                        help='Payload capacity per flight (default: 5)')
     
     # Simulation
@@ -234,20 +234,24 @@ Examples:
     
     args = parser.parse_args()
     
-    # Build configuration
+    # Build configuration from config.py defaults
     config = MissionConfig()
     
-    # Apply command-line overrides
-    config.SCOUT_CONNECTION = args.scout_port
-    config.DELIVERY_CONNECTION = args.delivery_port
-    config.SCOUT_BAUD = args.baud
-    config.DELIVERY_BAUD = args.baud
-    config.SCOUT_ALTITUDE = args.altitude
-    config.PAYLOAD_CAPACITY = args.capacity
-    
+    # Only override config if argument was explicitly provided
+    if args.scout_port:
+        config.SCOUT_CONNECTION = args.scout_port
+    if args.delivery_port:
+        config.DELIVERY_CONNECTION = args.delivery_port
+    if args.baud:
+        config.SCOUT_BAUD = args.baud
+        config.DELIVERY_BAUD = args.baud
+    if args.altitude:
+        config.SCOUT_ALTITUDE = args.altitude
+        config.DELIVERY_ALTITUDE = args.altitude
+    if args.capacity:
+        config.PAYLOAD_CAPACITY = args.capacity
     if args.kml:
         config.KML_FILE = args.kml
-    
     if args.rtsp:
         config.RTSP_URL = args.rtsp
     

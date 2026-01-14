@@ -290,48 +290,35 @@ class ScoutMission:
         logger.info("=" * 60)
         
         self.running = True
+        arm_attempted = False
         
         try:
             # 1. Connect to drone
-            logger.info("[1/6] Connecting to drone...")
+            logger.info("[1/7] Connecting to drone...")
             if not self.connect_drone():
                 logger.error("Failed to connect to drone")
                 return self.detected_targets
             
             # 2. Start video capture
-            logger.info("[2/6] Starting video capture...")
+            logger.info("[2/7] Starting video capture...")
             video_available = self.start_video()
             if video_available:
                 logger.info("Video capture started")
             else:
                 logger.info("Video not available - continuing with detection only")
             
-            # 3. Set GUIDED mode and arm
-            logger.info("[3/6] Setting GUIDED mode...")
-            if not self.drone.set_mode('GUIDED'):
-                logger.error("Failed to set GUIDED mode")
+            # 3-5. Arm and Takeoff (using safety-enhanced method)
+            logger.info("[3/6] Executing robust arm and takeoff sequence...")
+            arm_attempted = True
+            if not self.drone.arm_and_takeoff(self.config.SCOUT_ALTITUDE):
+                logger.error("Arm and takeoff failed")
+                self.drone.disarm()  # Ensure disarmed
                 return self.detected_targets
-            
-            logger.info("[4/6] Arming drone...")
-            if not self.drone.arm():
-                logger.error("Failed to arm drone")
-                return self.detected_targets
-            
-            # 4. Takeoff
-            logger.info(f"[5/6] Taking off to {self.config.SCOUT_ALTITUDE}m...")
-            if not self.drone.takeoff(self.config.SCOUT_ALTITUDE):
-                logger.error("Takeoff failed")
-                self.drone.disarm()
-                return self.detected_targets
-            
-            # Wait for altitude
-            if not self.drone.wait_for_altitude(self.config.SCOUT_ALTITUDE, tolerance=2.0):
-                logger.warning("Altitude not reached, continuing anyway")
             
             # Set survey speed
             self.drone.set_speed(self.config.SURVEY_SPEED)
             
-            # 5. Transit to WP0 (first waypoint) - NO DETECTION during transit
+            # 6. Transit to WP0 (first waypoint) - NO DETECTION during transit
             if len(self.waypoints) > 0:
                 wp0 = self.waypoints[0]
                 logger.info(f"[6/7] Transiting to WP0 (start point)...")
@@ -352,29 +339,36 @@ class ScoutMission:
                 else:
                     logger.info("Arrived at WP0 - STARTING DETECTION")
             
-            # 6. Execute survey with detection (starting from WP0)
+            # 7. Execute survey with detection (starting from WP0)
             logger.info("[7/7] Executing survey pattern with detection...")
             self._execute_survey()
             
-            # 7. RTL - returns to home position and lands
-            logger.info("Survey complete - Returning to launch (home position)...")
+            # RTL - returns to home position and lands
+            logger.info("Survey complete - Returning to home position...")
             self.drone.rtl()
             
             # Wait for landing at home
-            logger.info("Waiting for landing at home position...")
+            logger.info("Waiting for landing...")
             self.drone.wait_for_land(timeout=180.0)
             logger.info("Landed at home position")
             
         except KeyboardInterrupt:
             logger.warning("Mission interrupted by user")
             if self.drone and self.drone.is_armed():
-                logger.info("Triggering RTL to home...")
+                logger.info("Triggering RTL...")
                 self.drone.rtl()
         
         except Exception as e:
             logger.error(f"Mission error: {e}")
-            if self.drone and self.drone.is_armed():
-                self.drone.rtl()
+            import traceback
+            traceback.print_exc()
+            if self.drone:
+                if self.drone.is_armed():
+                    logger.info("Emergency RTL...")
+                    self.drone.rtl()
+                elif arm_attempted:
+                    # Try to disarm if arm was attempted but state is unclear
+                    self.drone.disarm()
         
         finally:
             self.running = False

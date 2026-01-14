@@ -1,9 +1,10 @@
 # Multi-Drone Mission - Requirements
 # ELKa 2026 Final Mission
+# Cross-platform: Works on Linux (Arch) and Windows 10/11
 
 # MAVLink Communication
 pymavlink>=2.4.0
-pyserial>=3.5  # Required for Windows COM port detection
+pyserial>=3.5  # Required for cross-platform serial port detection
 
 # Geodetic Calculations
 shapely>=2.0.0
