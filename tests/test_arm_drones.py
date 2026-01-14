@@ -67,6 +67,14 @@ def scan_drones():
     
     if not ports:
         print("No serial ports found!")
+        print("\nTroubleshooting:")
+        if platform.system() == 'Windows':
+            print("  - Check Device Manager for COM ports")
+            print("  - Install drivers for your telemetry radio")
+            print("  - Run: python -m serial.tools.list_ports")
+        else:
+            print("  - Check if transmitters are plugged in: ls /dev/tty*")
+            print("  - You may need permission: sudo usermod -a -G dialout $USER")
         return {}
     
     print(f"Scanning ports: {ports}")

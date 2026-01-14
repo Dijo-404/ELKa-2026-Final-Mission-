@@ -24,24 +24,56 @@ class MissionConfig:
     """
     
     # =========================================================================
-    # CONNECTION SETTINGS
+    # CONNECTION SETTINGS (Auto-detected based on OS)
     # =========================================================================
     # Windows: Use COM ports (e.g., "COM3", "COM4")
     # Linux: Use /dev/ttyACM* or /dev/ttyUSB* (e.g., "/dev/ttyACM0")
     # macOS: Use /dev/tty.usbserial* or /dev/tty.usbmodem*
     
     # Scout Drone (Survey & Detection) - 4S battery (~14-17V)
-    SCOUT_CONNECTION: str = "/dev/ttyACM1"  # Linux default
+    # Default will be set in __post_init__ based on platform
+    SCOUT_CONNECTION: str = ""
     SCOUT_BAUD: int = 57600
     SCOUT_NAME: str = "Scout"
     
     # Delivery Drone (Payload Drop) - 6S battery (~21-25V)
-    DELIVERY_CONNECTION: str = "/dev/ttyACM0"  # Linux default
+    # Default will be set in __post_init__ based on platform
+    DELIVERY_CONNECTION: str = ""
     DELIVERY_BAUD: int = 57600
     DELIVERY_NAME: str = "Delivery"
     
     # Connection timeout (seconds)
     CONNECTION_TIMEOUT: float = 10.0
+    
+    def __post_init__(self):
+        """Set platform-specific defaults after initialization."""
+        # Only set defaults if not already specified
+        if not self.SCOUT_CONNECTION:
+            self.SCOUT_CONNECTION = self._get_default_port(1)
+        if not self.DELIVERY_CONNECTION:
+            self.DELIVERY_CONNECTION = self._get_default_port(0)
+    
+    def _get_default_port(self, index: int) -> str:
+        """
+        Get platform-appropriate default port.
+        
+        Args:
+            index: Port index (0 = first port, 1 = second port)
+            
+        Returns:
+            Default port string for current platform
+        """
+        system = platform.system()
+        
+        if system == 'Windows':
+            # Windows uses COM ports (COM3, COM4, etc.)
+            return f"COM{3 + index}"
+        elif system == 'Darwin':
+            # macOS
+            return f"/dev/tty.usbserial-{index}"
+        else:
+            # Linux (default)
+            return f"/dev/ttyACM{index}"
     
     # =========================================================================
     # FLIGHT ALTITUDES

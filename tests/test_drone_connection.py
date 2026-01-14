@@ -68,6 +68,7 @@ def scan_and_connect():
         if platform.system() == 'Windows':
             print("  - Check Device Manager for COM ports")
             print("  - Install drivers for your telemetry radio")
+            print("  - Run: python -m serial.tools.list_ports")
         else:
             print("  - Check if transmitters are plugged in: ls /dev/tty*")
             print("  - You may need permission: sudo usermod -a -G dialout $USER")
