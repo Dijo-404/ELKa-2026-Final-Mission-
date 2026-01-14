@@ -78,17 +78,21 @@ class MissionConfig:
     # DETECTION SETTINGS
     # =========================================================================
     
-    # Detection confidence threshold
-    DETECTION_CONFIDENCE: float = 0.4
+    # Detection confidence threshold (70%)
+    DETECTION_CONFIDENCE: float = 0.7
     
-    # IOU threshold for NMS
-    IOU_THRESHOLD: float = 0.5
+    # IOU threshold for NMS (lower = stricter, reduces duplicate detections)
+    IOU_THRESHOLD: float = 0.45
     
     # Detection frame interval (process every Nth frame)
-    DETECTION_INTERVAL: int = 5
+    DETECTION_INTERVAL: int = 3
     
     # Minimum time between detections at same location (seconds)
-    DETECTION_COOLDOWN: float = 3.0
+    DETECTION_COOLDOWN: float = 2.0
+    
+    # Tracker settings for improved accuracy
+    TRACKER_BUFFER: int = 60      # Track memory in frames
+    TRACKER_MATCH_THRESH: float = 0.8  # Matching threshold
     
     # =========================================================================
     # PAYLOAD SETTINGS (Delivery Drone)
