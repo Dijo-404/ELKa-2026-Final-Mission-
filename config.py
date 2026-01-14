@@ -52,8 +52,8 @@ class MissionConfig:
     # Altitude to descend to for payload drop (meters)
     DROP_ALTITUDE: float = 5.0
     
-    # RTL altitude (meters)
-    RTL_ALTITUDE: float = 15.0
+    # RTL altitude (meters) - same as cruise altitude
+    RTL_ALTITUDE: float = 10.0
     
     # =========================================================================
     # SURVEY SETTINGS (Scout Drone)

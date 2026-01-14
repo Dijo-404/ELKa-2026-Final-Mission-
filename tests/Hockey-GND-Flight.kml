@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Survey Flight Path</name>
+    <description>Generated lawnmower survey path</description>
+    
+    <!-- Path Style -->
+    <Style id="pathStyle">
+      <LineStyle>
+        <color>ff0000ff</color>
+        <width>3</width>
+      </LineStyle>
+    </Style>
+    
+    <!-- Waypoint Style -->
+    <Style id="waypointStyle">
+      <IconStyle>
+        <scale>0.6</scale>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/paddle/ylw-circle.png</href>
+        </Icon>
+      </IconStyle>
+      <LabelStyle>
+        <scale>0.7</scale>
+      </LabelStyle>
+    </Style>
+    
+    <!-- Polygon Style -->
+    <Style id="polygonStyle">
+      <LineStyle>
+        <color>ff00ff00</color>
+        <width>2</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>2000ff00</color>
+      </PolyStyle>
+    </Style>
+
+    <!-- Survey Area Polygon -->
+    <Placemark>
+      <name>Survey Area</name>
+      <styleUrl>#polygonStyle</styleUrl>
+      <Polygon>
+        <tessellate>1</tessellate>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              77.5247803,28.4228435,0
+              77.5245229,28.4219282,0
+              77.5250808,28.421815,0
+              77.5253275,28.4227208,0
+              77.5247803,28.4228435,0
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+
+    <!-- Flight Path -->
+    <Placemark>
+      <name>Flight Path</name>
+      <description>Lawnmower survey pattern</description>
+      <styleUrl>#pathStyle</styleUrl>
+      <LineString>
+        <tessellate>1</tessellate>
+        <altitudeMode>relativeToGround</altitudeMode>
+        <coordinates>
+          77.52453198650463,28.421960511421982,10.0
+          77.52482472925367,28.421955080132186,10.0
+          77.52511747192156,28.42194964821397,10.0
+          77.52515414394912,28.42208429640975,10.0
+          77.52486199487905,28.422089717409644,10.0
+          77.52456984572811,28.42209513778366,10.0
+          77.52460770506056,28.422229764126293,10.0
+          77.5248992606119,28.42222435466848,10.0
+          77.52519081608273,28.42221894458732,10.0
+          77.52522748832232,28.4223535927467,10.0
+          77.52493652645224,28.422358991908702,10.0
+          77.52464556450195,28.422364390449896,10.0
+          77.5246834240523,28.422499016754454,10.0
+          77.52497379240005,28.42249362913029,10.0
+          77.52526416066793,28.42248824088786,10.0
+          77.52530083311956,28.422622889010825,10.0
+          77.52501105845533,28.422628266333266,10.0
+          77.52472128371157,28.422633643039966,10.0
+          77.52475914347981,28.422768269306438,10.0
+          77.52514798107799,28.422761054238297,10.0
+        </coordinates>
+      </LineString>
+    </Placemark>
+
+    <!-- Waypoints Folder -->
+    <Folder>
+      <name>Waypoints</name>
+      <Placemark>
+        <name>WP0</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.52453198650463,28.421960511421982,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP1</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.52482472925367,28.421955080132186,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP2</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.52511747192156,28.42194964821397,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP3</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.52515414394912,28.42208429640975,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP4</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.52486199487905,28.422089717409644,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP5</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.52456984572811,28.42209513778366,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP6</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.52460770506056,28.422229764126293,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP7</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.5248992606119,28.42222435466848,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP8</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.52519081608273,28.42221894458732,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP9</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.52522748832232,28.4223535927467,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP10</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.52493652645224,28.422358991908702,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP11</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.52464556450195,28.422364390449896,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP12</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.5246834240523,28.422499016754454,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP13</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.52497379240005,28.42249362913029,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP14</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.52526416066793,28.42248824088786,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP15</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.52530083311956,28.422622889010825,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP16</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.52501105845533,28.422628266333266,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP17</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.52472128371157,28.422633643039966,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP18</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.52475914347981,28.422768269306438,10.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WP19</name>
+        <description>Altitude: 10.0m</description>
+        <styleUrl>#waypointStyle</styleUrl>
+        <Point>
+          <altitudeMode>relativeToGround</altitudeMode>
+          <coordinates>77.52514798107799,28.422761054238297,10.0</coordinates>
+        </Point>
+      </Placemark>
+    </Folder>
+  </Document>
+</kml>

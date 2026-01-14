@@ -281,12 +281,13 @@ class DeliveryMission:
         except KeyboardInterrupt:
             logger.warning("Mission interrupted by user")
             if self.drone and self.drone.is_armed():
-                logger.info("Triggering RTL...")
+                logger.info("Triggering RTL to home position...")
                 self.drone.rtl()
         
         except Exception as e:
             logger.error(f"Mission error: {e}")
             if self.drone and self.drone.is_armed():
+                logger.info("Emergency RTL to home position...")
                 self.drone.rtl()
         
         finally:
@@ -401,13 +402,14 @@ class DeliveryMission:
             
             logger.info(f"Delivery {self.deliveries_completed}/{len(self.targets)} complete")
         
-        # 5. RTL
-        logger.info("\nBatch complete - Returning to launch...")
+        # 5. RTL - return to home position and land
+        logger.info("\nBatch complete - Returning to home position...")
         self.drone.rtl()
         
-        # Wait for landing
-        logger.info("Waiting for landing...")
-        self.drone.wait_for_land(timeout=120.0)
+        # Wait for landing at home
+        logger.info("Waiting for landing at home position...")
+        self.drone.wait_for_land(timeout=180.0)
+        logger.info("Landed at home position")
         
         # Disconnect for refill
         self.drone.disconnect()
