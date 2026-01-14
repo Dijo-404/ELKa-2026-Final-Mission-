@@ -463,6 +463,184 @@ class DroneController:
         
         return True
     
+    # =========================================================================
+    # SAFETY CRITICAL: Pilot Override Detection
+    # =========================================================================
+    
+    # Modes that indicate pilot has taken manual control
+    PILOT_OVERRIDE_MODES = {'STABILIZE', 'LOITER', 'POSHOLD', 'ALT_HOLD', 'ACRO', 'SPORT'}
+    
+    def check_pilot_override(self) -> Tuple[bool, str]:
+        """
+        Check if pilot has taken manual control via RC transmitter.
+        
+        SAFETY CRITICAL: If pilot switches to STABILIZE, LOITER, POSHOLD, 
+        ALT_HOLD, ACRO, or SPORT, the script MUST yield control immediately.
+        
+        This should be called in every flight loop iteration.
+        
+        Returns:
+            Tuple of (pilot_has_control, current_mode_name)
+            - pilot_has_control: True if mode indicates manual override
+            - current_mode_name: String name of current flight mode
+        """
+        if not self.mav:
+            return False, "DISCONNECTED"
+        
+        msg = self.mav.recv_match(type='HEARTBEAT', blocking=True, timeout=1.0)
+        if not msg:
+            return False, "NO_HEARTBEAT"
+        
+        self.last_heartbeat_time = time.time()
+        
+        # Get mode mapping and reverse it
+        mode_mapping = self.mav.mode_mapping()
+        reverse_mapping = {v: k for k, v in mode_mapping.items()}
+        
+        current_mode_id = msg.custom_mode
+        current_mode_name = reverse_mapping.get(current_mode_id, f"UNKNOWN({current_mode_id})")
+        
+        # Check if mode indicates pilot override
+        if current_mode_name in self.PILOT_OVERRIDE_MODES:
+            logger.warning(f"[{self.name}] PILOT OVERRIDE: Mode changed to {current_mode_name}")
+            return True, current_mode_name
+        
+        return False, current_mode_name
+    
+    def get_current_mode(self) -> str:
+        """
+        Get current flight mode name.
+        
+        Returns:
+            Mode name string (e.g., 'GUIDED', 'LOITER', 'RTL')
+        """
+        if not self.mav:
+            return "DISCONNECTED"
+        
+        msg = self.mav.recv_match(type='HEARTBEAT', blocking=True, timeout=1.0)
+        if not msg:
+            return "NO_HEARTBEAT"
+        
+        self.last_heartbeat_time = time.time()
+        
+        mode_mapping = self.mav.mode_mapping()
+        reverse_mapping = {v: k for k, v in mode_mapping.items()}
+        
+        return reverse_mapping.get(msg.custom_mode, f"UNKNOWN({msg.custom_mode})")
+    
+    # =========================================================================
+    # SAFETY CRITICAL: Blocking GPS Wait
+    # =========================================================================
+    
+    def wait_for_gps_3d_lock(self, timeout: float = 60.0) -> bool:
+        """
+        Block until GPS reports 3D fix (fix_type >= 3).
+        
+        SAFETY CRITICAL: Must be called before any takeoff command.
+        Prints status every second to console.
+        
+        Args:
+            timeout: Maximum wait time in seconds (default 60s)
+            
+        Returns:
+            True if 3D lock acquired, False on timeout
+        """
+        logger.info(f"[{self.name}] Waiting for GPS 3D lock...")
+        print(f"\n[{self.name}] Waiting for GPS Lock...")
+        
+        start_time = time.time()
+        last_print_time = 0
+        
+        while time.time() - start_time < timeout:
+            msg = self.mav.recv_match(type='GPS_RAW_INT', blocking=True, timeout=1.0)
+            
+            if msg:
+                fix_type = msg.fix_type
+                satellites = msg.satellites_visible
+                
+                # Print status every second
+                current_time = time.time()
+                if current_time - last_print_time >= 1.0:
+                    fix_names = {0: "No GPS", 1: "No Fix", 2: "2D Fix", 3: "3D Fix", 
+                                 4: "DGPS", 5: "RTK Float", 6: "RTK Fixed"}
+                    fix_name = fix_names.get(fix_type, f"Unknown({fix_type})")
+                    
+                    if fix_type >= 3:
+                        print(f"  GPS: {fix_name} ({satellites} sats) - OK!")
+                        logger.info(f"[{self.name}] GPS 3D Lock acquired: {satellites} satellites")
+                        return True
+                    else:
+                        elapsed = int(current_time - start_time)
+                        remaining = int(timeout - elapsed)
+                        print(f"  GPS: {fix_name} ({satellites} sats) - Waiting... [{remaining}s remaining]")
+                    
+                    last_print_time = current_time
+            
+            time.sleep(0.1)
+        
+        logger.error(f"[{self.name}] GPS 3D lock timeout after {timeout}s")
+        print(f"  GPS: TIMEOUT - No 3D lock after {timeout}s!")
+        return False
+    
+    # =========================================================================
+    # SAFETY CRITICAL: Pre-Flight Status
+    # =========================================================================
+    
+    def get_preflight_status(self) -> dict:
+        """
+        Get comprehensive pre-flight status for safety display.
+        
+        Returns dict with:
+            - battery_voltage: float
+            - battery_percent: int
+            - battery_ok: bool
+            - gps_fix_type: int
+            - gps_satellites: int
+            - gps_ok: bool
+            - ekf_ok: bool
+            - ekf_flags: int
+            - mode: str
+            - armed: bool
+        """
+        status = {
+            'battery_voltage': 0.0,
+            'battery_percent': -1,
+            'battery_ok': False,
+            'gps_fix_type': 0,
+            'gps_satellites': 0,
+            'gps_ok': False,
+            'ekf_ok': False,
+            'ekf_flags': 0,
+            'mode': 'UNKNOWN',
+            'armed': False
+        }
+        
+        if not self.mav:
+            return status
+        
+        # Battery
+        battery_ok, voltage, percent = self.check_battery()
+        status['battery_voltage'] = voltage
+        status['battery_percent'] = percent
+        status['battery_ok'] = battery_ok
+        
+        # GPS
+        gps_ok, fix_type, satellites = self.check_gps_quality()
+        status['gps_fix_type'] = fix_type
+        status['gps_satellites'] = satellites
+        status['gps_ok'] = gps_ok
+        
+        # EKF
+        ekf_ok, flags = self.check_ekf_status()
+        status['ekf_ok'] = ekf_ok
+        status['ekf_flags'] = flags
+        
+        # Mode and armed state
+        status['mode'] = self.get_current_mode()
+        status['armed'] = self.query_armed_state()
+        
+        return status
+    
     def arm(self) -> bool:
         """
         Arm the drone with comprehensive safety checks.

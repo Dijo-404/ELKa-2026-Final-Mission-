@@ -59,6 +59,149 @@ def print_config(config: MissionConfig):
     print()
 
 
+# =============================================================================
+# SAFETY CRITICAL: Pre-Flight Status and Confirmation
+# =============================================================================
+
+def print_failsafe_warning():
+    """Print critical failsafe parameter reminder."""
+    print()
+    print("+" + "=" * 78 + "+")
+    print("|" + " FAILSAFE PARAMETER CHECK - VERIFY BEFORE FLIGHT ".center(78) + "|")
+    print("+" + "=" * 78 + "+")
+    print("|" + "".center(78) + "|")
+    print("|" + "  VERIFY THESE PARAMETERS IN MISSION PLANNER / QGROUNDCONTROL:".ljust(78) + "|")
+    print("|" + "".center(78) + "|")
+    print("|" + "    FS_GCS_ENABL  = 3  (RTL on GCS connection loss)".ljust(78) + "|")
+    print("|" + "    FS_BATT_ENABLE = 1  (Land on critical battery)".ljust(78) + "|")
+    print("|" + "    FS_THR_ENABLE  = 1  (RTL on RC signal loss)".ljust(78) + "|")
+    print("|" + "".center(78) + "|")
+    print("|" + "  WARNING: If USB cable disconnects, FS_GCS_ENABL triggers RTL!".ljust(78) + "|")
+    print("|" + "  This is your ONLY protection against a flyaway on GCS failure.".ljust(78) + "|")
+    print("|" + "".center(78) + "|")
+    print("+" + "=" * 78 + "+")
+    print()
+
+
+def print_preflight_status(drone_name: str, status: dict) -> bool:
+    """
+    Print comprehensive pre-flight status report for a drone.
+    
+    Args:
+        drone_name: Name of the drone (Scout/Delivery)
+        status: Status dict from drone.get_preflight_status()
+        
+    Returns:
+        True if all checks pass
+    """
+    print()
+    print("+" + "-" * 58 + "+")
+    print("|" + f" PRE-FLIGHT STATUS: {drone_name} ".center(58) + "|")
+    print("+" + "-" * 58 + "+")
+    
+    all_ok = True
+    
+    # Battery
+    voltage = status.get('battery_voltage', 0.0)
+    percent = status.get('battery_percent', -1)
+    battery_ok = status.get('battery_ok', False)
+    
+    if percent >= 0:
+        battery_str = f"{voltage:.1f}V ({percent}%)"
+    else:
+        battery_str = f"{voltage:.1f}V"
+    
+    battery_status = "OK" if battery_ok else "LOW"
+    print(f"|  BATTERY: {battery_str.ljust(20)} [{battery_status}]".ljust(58) + " |")
+    if not battery_ok:
+        all_ok = False
+    
+    # GPS
+    fix_type = status.get('gps_fix_type', 0)
+    satellites = status.get('gps_satellites', 0)
+    gps_ok = status.get('gps_ok', False)
+    
+    fix_names = {0: "No GPS", 1: "No Fix", 2: "2D Fix", 3: "3D Fix", 
+                 4: "DGPS", 5: "RTK Float", 6: "RTK Fixed"}
+    fix_name = fix_names.get(fix_type, f"Unknown({fix_type})")
+    
+    gps_status = "3D FIX" if gps_ok else "NO FIX"
+    print(f"|  GPS:     {satellites} sats, {fix_name.ljust(12)} [{gps_status}]".ljust(58) + " |")
+    if not gps_ok:
+        all_ok = False
+    
+    # EKF
+    ekf_ok = status.get('ekf_ok', False)
+    ekf_flags = status.get('ekf_flags', 0)
+    
+    ekf_status = "HEALTHY" if ekf_ok else "UNHEALTHY"
+    print(f"|  EKF:     flags=0x{ekf_flags:04x}".ljust(33) + f"[{ekf_status}]".ljust(25) + " |")
+    if not ekf_ok:
+        # EKF may not report on all controllers, so warn but don't fail
+        logger.warning(f"EKF status not confirmed for {drone_name}")
+    
+    # Mode
+    mode = status.get('mode', 'UNKNOWN')
+    armed = status.get('armed', False)
+    armed_str = "ARMED" if armed else "DISARMED"
+    
+    print(f"|  MODE:    {mode.ljust(20)} [{armed_str}]".ljust(58) + " |")
+    
+    # Overall status
+    print("+" + "-" * 58 + "+")
+    
+    if all_ok:
+        print("|" + " STATUS: READY FOR FLIGHT ".center(58, '*') + "|")
+    else:
+        print("|" + " STATUS: NOT READY - FIX ISSUES ABOVE ".center(58, '!') + "|")
+    
+    print("+" + "-" * 58 + "+")
+    print()
+    
+    return all_ok
+
+
+def confirm_arm_command() -> bool:
+    """
+    Require user to type 'ARM' to confirm mission start.
+    
+    SAFETY CRITICAL: This is the final gate before arming.
+    
+    Returns:
+        True if user confirms, False otherwise
+    """
+    print()
+    print("+" + "=" * 58 + "+")
+    print("|" + " FINAL CONFIRMATION REQUIRED ".center(58) + "|")
+    print("+" + "=" * 58 + "+")
+    print("|" + "".center(58) + "|")
+    print("|" + " You are about to arm and fly real drones.".center(58) + "|")
+    print("|" + " Ensure all safety checks are GREEN above.".center(58) + "|")
+    print("|" + " Stand clear of propellers.".center(58) + "|")
+    print("|" + "".center(58) + "|")
+    print("+" + "=" * 58 + "+")
+    print()
+    
+    try:
+        response = input(">>> Type 'ARM' to confirm mission start (or 'q' to quit): ").strip().upper()
+        
+        if response == 'ARM':
+            print("\n*** MISSION CONFIRMED - ARMING SEQUENCE INITIATED ***\n")
+            logger.info("User confirmed ARM command")
+            return True
+        elif response == 'Q':
+            print("\nMission cancelled by user.")
+            return False
+        else:
+            print(f"\nInvalid response: '{response}'. Mission cancelled.")
+            print("You must type exactly 'ARM' to proceed.")
+            return False
+    
+    except KeyboardInterrupt:
+        print("\n\nMission cancelled by user.")
+        return False
+
+
 def run_full_mission(config: MissionConfig) -> bool:
     """
     Execute full dual-drone mission.
@@ -264,6 +407,71 @@ Examples:
         print("*** SIMULATION MODE - No real drones will be connected ***\n")
         # In simulation mode, we'd use mock connections
         # For now, just note that real connections will fail
+    
+    # =========================================================================
+    # SAFETY CRITICAL: Pre-Flight Checks and Confirmation
+    # =========================================================================
+    if not args.simulate:
+        # Import DroneController for pre-flight status
+        from drone_controller import DroneController
+        
+        # Print failsafe warning
+        print_failsafe_warning()
+        
+        # Determine which drones to check
+        drones_to_check = []
+        
+        if args.scout_only:
+            drones_to_check = [
+                ("Scout", config.SCOUT_CONNECTION, config.SCOUT_BAUD)
+            ]
+        elif args.delivery_only:
+            drones_to_check = [
+                ("Delivery", config.DELIVERY_CONNECTION, config.DELIVERY_BAUD)
+            ]
+        else:
+            drones_to_check = [
+                ("Scout", config.SCOUT_CONNECTION, config.SCOUT_BAUD),
+                ("Delivery", config.DELIVERY_CONNECTION, config.DELIVERY_BAUD)
+            ]
+        
+        # Pre-flight status check for each drone
+        all_drones_ready = True
+        
+        for drone_name, connection, baud in drones_to_check:
+            print(f"\nConnecting to {drone_name} ({connection}) for pre-flight check...")
+            
+            try:
+                drone = DroneController(connection, baud=baud, name=drone_name)
+                
+                if drone.connect(timeout=config.CONNECTION_TIMEOUT):
+                    # Get and display status
+                    status = drone.get_preflight_status()
+                    is_ready = print_preflight_status(drone_name, status)
+                    
+                    if not is_ready:
+                        all_drones_ready = False
+                    
+                    drone.disconnect()
+                else:
+                    print(f"\n  ERROR: Could not connect to {drone_name}!")
+                    print(f"  Check connection: {connection}")
+                    all_drones_ready = False
+                    
+            except Exception as e:
+                print(f"\n  ERROR: Pre-flight check failed for {drone_name}: {e}")
+                all_drones_ready = False
+        
+        # Final confirmation
+        if not all_drones_ready:
+            print("\n" + "!" * 60)
+            print("  WARNING: Not all pre-flight checks passed!")
+            print("  Proceeding is NOT recommended.")
+            print("!" * 60)
+        
+        if not confirm_arm_command():
+            print("\nMission aborted. No drones were armed.")
+            sys.exit(0)
     
     # Execute mission
     success = False

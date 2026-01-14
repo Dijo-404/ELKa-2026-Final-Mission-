@@ -390,9 +390,21 @@ class ScoutMission:
         total_waypoints = len(self.waypoints)
         frame_counter = 0
         
+        # SAFETY: Track consecutive failures for RTL escape
+        MAX_WAYPOINT_FAILURES = 3
+        consecutive_failures = 0
+        
         for i, wp in enumerate(self.waypoints):
             if self.abort_requested:
                 logger.warning("Mission abort requested")
+                break
+            
+            # SAFETY CRITICAL: Check for pilot override
+            override, mode = self.drone.check_pilot_override()
+            if override:
+                logger.warning(f"PILOT OVERRIDE DETECTED - Mode changed to {mode}")
+                logger.info("Script yielding control to pilot - stopping command transmission")
+                self.abort_requested = True
                 break
             
             self.current_waypoint_index = i + 1
@@ -403,6 +415,13 @@ class ScoutMission:
             # Navigate to waypoint
             if not self.drone.goto(wp.lat, wp.lon, wp.alt):
                 logger.warning("Navigation failed - skipping waypoint")
+                consecutive_failures += 1
+                
+                # SAFETY: RTL after too many consecutive failures
+                if consecutive_failures >= MAX_WAYPOINT_FAILURES:
+                    logger.error(f"SAFETY: {MAX_WAYPOINT_FAILURES} consecutive failures - triggering RTL!")
+                    self.drone.rtl()
+                    break
                 continue
             
             # Wait for arrival while processing video
@@ -411,6 +430,14 @@ class ScoutMission:
             
             while time.time() - start_time < self.config.WAYPOINT_TIMEOUT:
                 if self.abort_requested:
+                    break
+                
+                # SAFETY CRITICAL: Check for pilot override during wait
+                override, mode = self.drone.check_pilot_override()
+                if override:
+                    logger.warning(f"PILOT OVERRIDE DETECTED - Mode changed to {mode}")
+                    logger.info("Script yielding control to pilot")
+                    self.abort_requested = True
                     break
                 
                 # Process video frame (every Nth frame)
@@ -440,8 +467,16 @@ class ScoutMission:
             
             if arrived:
                 logger.debug(f"Arrived at waypoint {self.current_waypoint_index}")
+                consecutive_failures = 0  # Reset on success
             else:
                 logger.warning(f"Timeout at waypoint {self.current_waypoint_index}")
+                consecutive_failures += 1
+                
+                # SAFETY: RTL after too many consecutive failures
+                if consecutive_failures >= MAX_WAYPOINT_FAILURES:
+                    logger.error(f"SAFETY: {MAX_WAYPOINT_FAILURES} consecutive timeouts - triggering RTL!")
+                    self.drone.rtl()
+                    break
     
     def _update_display(self):
         """Update video display with current state."""

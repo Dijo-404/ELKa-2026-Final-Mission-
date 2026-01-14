@@ -361,8 +361,20 @@ class DeliveryMission:
         # 5. Execute deliveries
         logger.info("[3/4] Executing deliveries...")
         
+        # SAFETY: Track consecutive failures for RTL escape
+        MAX_TARGET_FAILURES = 3
+        consecutive_failures = 0
+        
         for i, target in enumerate(batch):
             if self.abort_requested:
+                break
+            
+            # SAFETY CRITICAL: Check for pilot override
+            override, mode = self.drone.check_pilot_override()
+            if override:
+                logger.warning(f"PILOT OVERRIDE DETECTED - Mode changed to {mode}")
+                logger.info("Script yielding control to pilot - stopping command transmission")
+                self.abort_requested = True
                 break
             
             self.current_target_index = i + 1
@@ -377,6 +389,13 @@ class DeliveryMission:
                 self.config.DELIVERY_ALTITUDE
             ):
                 logger.warning(f"Navigation to target {target.id} failed")
+                consecutive_failures += 1
+                
+                # SAFETY: RTL after too many consecutive failures
+                if consecutive_failures >= MAX_TARGET_FAILURES:
+                    logger.error(f"SAFETY: {MAX_TARGET_FAILURES} consecutive failures - triggering RTL!")
+                    self.drone.rtl()
+                    return False
                 continue
             
             # Wait for arrival at cruise altitude
@@ -387,7 +406,24 @@ class DeliveryMission:
                 timeout=120.0
             ):
                 logger.warning(f"Timeout reaching target {target.id}")
+                consecutive_failures += 1
+                
+                # SAFETY: RTL after too many consecutive failures
+                if consecutive_failures >= MAX_TARGET_FAILURES:
+                    logger.error(f"SAFETY: {MAX_TARGET_FAILURES} consecutive timeouts - triggering RTL!")
+                    self.drone.rtl()
+                    return False
                 continue
+            
+            # Reset failure counter on successful arrival
+            consecutive_failures = 0
+            
+            # SAFETY CRITICAL: Check for pilot override before descent
+            override, mode = self.drone.check_pilot_override()
+            if override:
+                logger.warning(f"PILOT OVERRIDE DETECTED - Mode changed to {mode}")
+                self.abort_requested = True
+                break
             
             # Descend to drop altitude
             logger.info(f"Descending to drop altitude ({self.config.DROP_ALTITUDE}m)...")
