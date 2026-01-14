@@ -51,6 +51,8 @@ class DeliveryMission:
     
     Executes payload drops at detected target locations
     in batches based on payload capacity.
+    
+    Supports 6-servo payload system on Cube Orange (AUX1-6 = SERVO9-14).
     """
     
     def __init__(self, config: MissionConfig = None):
@@ -71,6 +73,10 @@ class DeliveryMission:
         self.current_batch_index = 0
         self.current_target_index = 0
         self.deliveries_completed = 0
+        
+        # Payload tracking (for 6-servo sequential drops)
+        # Tracks which payload slot (0-5) to drop next in current batch
+        self.current_payload_slot = 0
         
         # Control flags
         self.running = False
@@ -167,33 +173,63 @@ class DeliveryMission:
     
     def drop_payload(self) -> bool:
         """
-        Execute payload drop at current position.
+        Execute payload drop at current position using next available servo.
         
-        Triggers servo and hovers for DROP_DURATION.
+        Uses sequential servo channels from PAYLOAD_SERVO_CHANNELS:
+        - Slot 0 = AUX1 (SERVO9)
+        - Slot 1 = AUX2 (SERVO10)
+        - ...
+        - Slot 5 = AUX6 (SERVO14)
         
         Returns:
-            True if drop executed
+            True if drop executed, False if no payloads remaining
         """
-        logger.info("Executing payload drop...")
+        # Check if we have payloads remaining
+        if self.current_payload_slot >= len(self.config.PAYLOAD_SERVO_CHANNELS):
+            logger.warning("No payloads remaining in current batch!")
+            return False
+        
+        # Get servo channel for current payload slot
+        servo_channel = self.config.PAYLOAD_SERVO_CHANNELS[self.current_payload_slot]
+        slot_num = self.current_payload_slot + 1  # 1-indexed for display
+        
+        logger.info(f"Dropping payload {slot_num}/{len(self.config.PAYLOAD_SERVO_CHANNELS)} "
+                   f"(SERVO{servo_channel} / AUX{servo_channel - 8})...")
         
         # Trigger servo to drop position
-        self.drone.set_servo(
-            self.config.DROP_SERVO_CHANNEL,
-            self.config.DROP_SERVO_PWM
-        )
+        self.drone.set_servo(servo_channel, self.config.DROP_SERVO_PWM)
         
         # Hover for drop duration
         logger.info(f"Hovering for {self.config.DROP_DURATION}s...")
         time.sleep(self.config.DROP_DURATION)
         
-        # Reset servo to load position
-        self.drone.set_servo(
-            self.config.DROP_SERVO_CHANNEL,
-            self.config.LOAD_SERVO_PWM
-        )
+        # Reset servo to closed position (optional - depends on mechanism)
+        self.drone.set_servo(servo_channel, self.config.LOAD_SERVO_PWM)
         
-        logger.info("Payload dropped!")
+        # Increment to next payload slot
+        self.current_payload_slot += 1
+        
+        logger.info(f"Payload {slot_num} dropped! "
+                   f"({len(self.config.PAYLOAD_SERVO_CHANNELS) - self.current_payload_slot} remaining)")
         return True
+    
+    def reset_payload_slots(self):
+        """
+        Reset payload slot counter for refill.
+        
+        Call this after landing and refilling all payload bays.
+        Also resets all servos to closed position.
+        """
+        logger.info("Resetting payload slots for refill...")
+        self.current_payload_slot = 0
+        
+        # Reset all servos to closed position
+        if self.drone and self.drone.is_connected():
+            for servo_channel in self.config.PAYLOAD_SERVO_CHANNELS:
+                self.drone.set_servo(servo_channel, self.config.LOAD_SERVO_PWM)
+                time.sleep(0.1)  # Small delay between servo commands
+        
+        logger.info("All payload slots reset to closed position")
     
     def wait_for_refill(self, batch_num: int, total_batches: int) -> bool:
         """
@@ -345,6 +381,9 @@ class DeliveryMission:
         Returns:
             True if batch completed successfully
         """
+        # Reset payload slot for this batch
+        self.current_payload_slot = 0
+        
         # 1. Connect to drone
         logger.info("[1/5] Connecting to drone...")
         if not self.connect_drone():
@@ -359,7 +398,8 @@ class DeliveryMission:
             return False
         
         # 5. Execute deliveries
-        logger.info("[3/4] Executing deliveries...")
+        logger.info(f"[3/4] Executing deliveries ({len(batch)} targets, "
+                   f"{len(self.config.PAYLOAD_SERVO_CHANNELS)} payloads available)...")
         
         # SAFETY: Track consecutive failures for RTL escape
         MAX_TARGET_FAILURES = 3

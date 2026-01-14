@@ -99,23 +99,33 @@ class MissionConfig:
     TRACKER_MATCH_THRESH: float = 0.8  # Matching threshold
     
     # =========================================================================
-    # PAYLOAD SETTINGS (Delivery Drone)
+    # PAYLOAD SETTINGS (Delivery Drone - Cube Orange)
     # =========================================================================
+    # Cube Orange AUX outputs map to SERVO channels as follows:
+    #   AUX1 = SERVO9,  AUX2 = SERVO10, AUX3 = SERVO11
+    #   AUX4 = SERVO12, AUX5 = SERVO13, AUX6 = SERVO14
     
-    # Maximum payloads per flight
-    PAYLOAD_CAPACITY: int = 5
+    # Number of payload slots (6 servos = 6 payloads)
+    PAYLOAD_COUNT: int = 6
     
-    # Servo channel for payload release
-    DROP_SERVO_CHANNEL: int = 9
+    # Maximum payloads per flight (same as PAYLOAD_COUNT for single flight)
+    PAYLOAD_CAPACITY: int = 6
     
-    # Servo PWM for drop position
+    # Servo channels for each payload (AUX1-6 = SERVO9-14)
+    # Index 0 = first payload, Index 5 = sixth payload
+    PAYLOAD_SERVO_CHANNELS: list = field(default_factory=lambda: [9, 10, 11, 12, 13, 14])
+    
+    # Servo PWM for drop/release position
     DROP_SERVO_PWM: int = 1900
     
     # Servo PWM for closed/loaded position
     LOAD_SERVO_PWM: int = 1100
     
     # Hover duration during drop (seconds)
-    DROP_DURATION: float = 5.0
+    DROP_DURATION: float = 3.0
+    
+    # Legacy single-servo setting (kept for backwards compatibility)
+    DROP_SERVO_CHANNEL: int = 9
     
     # =========================================================================
     # VIDEO / RTSP SETTINGS
