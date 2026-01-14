@@ -116,9 +116,9 @@ class MissionConfig:
     # RTSP stream URL for live feed (SIYI camera)
     RTSP_URL: str = "rtsp://192.168.144.25:8554/main.264"
     
-    # Video resolution
-    VIDEO_WIDTH: int = 1280
-    VIDEO_HEIGHT: int = 720
+    # Video resolution (640p optimized for YOLO model)
+    VIDEO_WIDTH: int = 640
+    VIDEO_HEIGHT: int = 360
     
     # Display window settings
     DISPLAY_WINDOW_NAME: str = "Multi-Drone Mission - Live Feed"

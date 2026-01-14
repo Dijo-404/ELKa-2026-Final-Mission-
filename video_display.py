@@ -81,7 +81,7 @@ class VideoDisplay:
     
     def open(self) -> bool:
         """
-        Open video source.
+        Open video source with RTSP optimization.
         
         Returns:
             True if opened successfully
@@ -89,7 +89,12 @@ class VideoDisplay:
         try:
             if self.rtsp_url:
                 logger.info(f"Opening RTSP stream: {self.rtsp_url}")
-                self.capture = cv2.VideoCapture(self.rtsp_url)
+                # Use FFMPEG backend for better RTSP handling
+                self.capture = cv2.VideoCapture(self.rtsp_url, cv2.CAP_FFMPEG)
+                
+                if self.capture.isOpened():
+                    # Set minimum buffer size for low latency
+                    self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             else:
                 logger.info(f"Opening camera: {self.camera_index}")
                 self.capture = cv2.VideoCapture(self.camera_index)
@@ -97,10 +102,6 @@ class VideoDisplay:
             if not self.capture.isOpened():
                 logger.error("Failed to open video source")
                 return False
-            
-            # Set resolution
-            self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.window_width)
-            self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.window_height)
             
             logger.info("Video source opened successfully")
             return True
@@ -112,6 +113,7 @@ class VideoDisplay:
     def read_frame(self) -> Optional[np.ndarray]:
         """
         Read a frame from the video source.
+        Automatically resizes to 640p for optimized model performance.
         
         Returns:
             Frame as numpy array, or None if read failed
@@ -120,7 +122,15 @@ class VideoDisplay:
             return None
         
         ret, frame = self.capture.read()
-        if ret:
+        if ret and frame is not None:
+            # Resize to 640 width for optimized detection
+            h, w = frame.shape[:2]
+            target_width = 640
+            if w != target_width:
+                scale = target_width / w
+                new_h = int(h * scale)
+                frame = cv2.resize(frame, (target_width, new_h))
+            
             self.current_frame = frame
             return frame
         return None
